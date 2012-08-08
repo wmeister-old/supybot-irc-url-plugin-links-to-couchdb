@@ -86,9 +86,9 @@ while(<>) {
 	if($type =~ m!image/(jpeg|png|gif|);!i) {
 	    $doc->{type} = 'image';
 	    $doc->{mime_type} = "image/$1";
-	    $doc->{content} = $content;
 	}
     }
 
-    $db->newDoc($id, undef, $doc)->create;
+    my $saved_doc = $db->newDoc($id, undef, $doc)->create();
+    $saved_doc->addAttachment("image", $doc->{mime_type}, $content)->update() if $doc->{type} eq 'image';
 }
