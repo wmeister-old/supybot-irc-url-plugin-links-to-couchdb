@@ -7,6 +7,7 @@ use Mojo::DOM;
 use URI::Escape qw(uri_unescape);
 use HTML::Entities qw(encode_entities);
 use CouchDB::Client;
+use File::Temp;
 use strict;
 use warnings;
 
@@ -24,13 +25,17 @@ sub fetch {
 sub has_string {
     my ($a, $e) = @_;
     foreach my $t (@$a) { return 1 if $e eq $t; }
-    return 0;
+    0;
+}
+sub has_mime_type {
+    my ($header, $type) = @_;
+    index($header, "Content-Type: $type") != -1;
 }
 
 my %urls = ();
 my $db_name = 'basement_links';
 my $design_name = '_design/link';
-my $client = CouchDB::Client->new(uri => "http://127.0.0.1:5984/") or die "couldn't create CouchDB client";
+my $client = CouchDB::Client->new() or die "couldn't create CouchDB client";
 $client->dbExists($db_name) or die "$db_name does not exist";
 my $db = $client->newDB($db_name);
 $db->designDocExists($design_name) or die "design doc $design_name does not exsist";
@@ -57,15 +62,33 @@ while(<>) {
 
     my $title = uri_unescape($url);
     my $header = fetch($url, '-I');
-    if(index($header, 'Content-Type: text/html') != -1) {
+    if(has_mime_type($header, 'text/html')) {
 	my $html = fetch($url);
 	if($html ne '' && defined(my $dom_title = Mojo::DOM->new($html)->at('title'))) {
 	    $title = $dom_title->text;
 	}
     }
     $title = encode_entities($title);
+
+    my $doc = {id => $id,
+	       type => 'unknown', 
+	       escaped_url => $url,
+	       timestamp => $timestamp, 
+	       encoded_title => $title};
     
-    $db->newDoc($id, undef, {id => $id, escaped_url => $url, timestamp => $timestamp, encoded_title => $title})->create;
+    if(has_mime_type($header, 'image/jpeg') 
+       || has_mime_type($header, 'image/gif')
+       || has_mime_type($header, 'image/png')) {
+	my $fh = File::Temp->new();	
+	print $fh my $content = fetch($url);
+	my $name = $fh->filename;
+	my $type = `file -i $name`;
+	if($type =~ m!image/(jpeg|png|gif|);!i) {
+	    $doc->{type} = 'image';
+	    $doc->{mime_type} = "image/$1";
+	    $doc->{content} = $content;
+	}
+    }
+
+    $db->newDoc($id, undef, $doc)->create;
 }
-
-
