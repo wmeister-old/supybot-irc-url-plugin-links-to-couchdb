@@ -6,10 +6,9 @@ use POSIX qw(strftime);
 use Mojo::DOM;
 use URI::Escape qw(uri_unescape);
 use HTML::Entities qw(encode_entities);
+use CouchDB::Client;
 use strict;
 use warnings;
-
-use Data::Dumper; # TODO remove when done
 
 sub fetch {
 	my ($url, $flag) = @_;
@@ -22,11 +21,25 @@ sub fetch {
 	return $content;
 }
 
+sub has_string {
+    my ($a, $e) = @_;
+    foreach my $t (@$a) { return 1 if $e eq $t; }
+    return 0;
+}
+
 my %urls = ();
+my $db_name = 'basement_links';
+my $design_name = '_design/link';
+my $client = CouchDB::Client->new(uri => "http://192.168.1.114:5984/") or die "couldn't create CouchDB client";
+$client->dbExists($db_name) or die "$db_name does not exist";
+my $db = $client->newDB($db_name);
+$db->designDocExists($design_name) or die "design doc $design_name does not exsist";
+my @ids = map { $_->{value} } @{$db->newDesignDoc('_design/link')->retrieve->queryView('all_ids')->{rows}};
 
 while(<>) {
     my ($id, $rest) = split ':', $_, 2;
     next unless defined $id && defined $rest;
+    next if has_string(\@ids, $id);
 
     my $url;
     ($url, $rest) = split ',', $rest, 2;
@@ -51,9 +64,8 @@ while(<>) {
 	}
     }
     $title = encode_entities($title);
-
-    push @{$urls{$timestamp}}, {id => $id, url => $url, timestamp => $timestamp, title => $title};
+    
+    $db->newDoc($id, undef, {id => $id, escaped_url => $url, timestamp => $timestamp, encoded_title => $title})->create;
 }
-# TODO sort keys %urls; genrate html
-print Dumper([\%urls]);
+
 
