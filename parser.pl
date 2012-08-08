@@ -30,7 +30,7 @@ sub has_string {
 my %urls = ();
 my $db_name = 'basement_links';
 my $design_name = '_design/link';
-my $client = CouchDB::Client->new(uri => "http://192.168.1.114:5984/") or die "couldn't create CouchDB client";
+my $client = CouchDB::Client->new(uri => "http://127.0.0.1:5984/") or die "couldn't create CouchDB client";
 $client->dbExists($db_name) or die "$db_name does not exist";
 my $db = $client->newDB($db_name);
 $db->designDocExists($design_name) or die "design doc $design_name does not exsist";
