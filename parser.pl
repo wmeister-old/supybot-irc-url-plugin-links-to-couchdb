@@ -75,12 +75,12 @@ while(<>) {
 	       escaped_url => $url,
 	       timestamp => $timestamp, 
 	       encoded_title => $title};
-    
+    my $content = undef;
     if(has_mime_type($header, 'image/jpeg') 
        || has_mime_type($header, 'image/gif')
        || has_mime_type($header, 'image/png')) {
 	my $fh = File::Temp->new();	
-	print $fh my $content = fetch($url);
+	print $fh $content = fetch($url);
 	my $name = $fh->filename;
 	my $type = `file -i $name`;
 	if($type =~ m!image/(jpeg|png|gif|);!i) {
